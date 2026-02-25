@@ -25,4 +25,4 @@ COPY scraper.py .
 # Cron job à 21h chaque soir
 RUN echo "0 21 * * * cd /app && python scraper.py >> /var/log/scraper.log 2>&1" | crontab -
 
-CMD ["sh", "-c", "cron && tail -f /var/log/scraper.log"]
+CMD ["sh", "-c", "cron && touch /var/log/scraper.log && tail -f /var/log/scraper.log"]
