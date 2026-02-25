@@ -9,6 +9,7 @@ RUN playwright install chromium
 
 COPY scraper.py .
 
-RUN echo "* * * * * cd /app && /usr/local/bin/python scraper.py >> /var/log/scraper.log 2>&1" | crontab -
+RUN PY=$(command -v python3 || command -v python) && \
+    echo "* * * * * cd /app && ${PY} /app/scraper.py >> /var/log/scraper.log 2>&1" | crontab -
 
 CMD ["sh", "-c", "printenv >> /etc/environment && cron && touch /var/log/scraper.log && tail -f /var/log/scraper.log"]
