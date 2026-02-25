@@ -1,0 +1,185 @@
+{
+  "name": "Planity → Notion PLANITY_stats",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "planity-rdv",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-001",
+      "name": "Webhook Planity",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "planity-rdv-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraire le tableau rdvs et créer un item par RDV\nconst data = $input.all()[0].json;\n\n// Compatible webhook v1 (data directe) et v2 (data.body)\nconst body = data.body || data;\nconst rdvs = body.rdvs || [];\n\nif (rdvs.length === 0) {\n  console.log('Aucun RDV reçu pour le ' + body.date);\n  return [{ json: { _skip: true, date: body.date, message: 'Aucun RDV' } }];\n}\n\nconsole.log(`${rdvs.length} RDVs reçus pour le ${body.date}`);\nreturn rdvs.map(rdv => ({ json: rdv }));"
+      },
+      "id": "node-code-002",
+      "name": "Extraire les RDVs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-skip",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-003",
+      "name": "RDV valide?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": {
+          "__rl": true,
+          "value": "3126bd8ac51180cc9dfffb4400aae5c0",
+          "mode": "id"
+        },
+        "title": "={{ $json.client || 'Sans nom' }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Date|date",
+              "dateValue": "={{ $json.date }}"
+            },
+            {
+              "key": "Sexe|select",
+              "selectValue": "={{ $json.sexe || 'Autre' }}"
+            },
+            {
+              "key": "Code postal|rich_text",
+              "textContent": "={{ $json.code_postal }}"
+            },
+            {
+              "key": "Prestation|rich_text",
+              "textContent": "={{ $json.prestation }}"
+            },
+            {
+              "key": "Collaboratrice|select",
+              "selectValue": "={{ $json.collaboratrice }}"
+            },
+            {
+              "key": "Durée_min|number",
+              "numberValue": "={{ $json.duree_min }}"
+            },
+            {
+              "key": "Prix|number",
+              "numberValue": "={{ $json.prix }}"
+            },
+            {
+              "key": "Cabine|select",
+              "selectValue": "={{ $json.cabine }}"
+            },
+            {
+              "key": "Statut|select",
+              "selectValue": "={{ $json.statut || 'Honoré' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-notion-004",
+      "name": "Créer dans Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [900, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, rdvs_traites: $items('Créer dans Notion').length }) }}"
+      },
+      "id": "node-respond-005",
+      "name": "Réponse OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Planity": {
+      "main": [
+        [
+          {
+            "node": "Extraire les RDVs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraire les RDVs": {
+      "main": [
+        [
+          {
+            "node": "RDV valide?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RDV valide?": {
+      "main": [
+        [
+          {
+            "node": "Créer dans Notion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Réponse OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Créer dans Notion": {
+      "main": [
+        [
+          {
+            "node": "Réponse OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
