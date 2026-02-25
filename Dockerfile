@@ -23,6 +23,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY scraper.py .
 
 # Cron job à 21h chaque soir
-RUN echo "* * * * * cd /app && python scraper.py >> /var/log/scraper.log 2>&1" | crontab -
+RUN echo "* * * * * cd /app && /usr/local/bin/python scraper.py >> /var/log/scraper.log 2>&1" | crontab -
 
 CMD ["sh", "-c", "cron && touch /var/log/scraper.log && tail -f /var/log/scraper.log"]
