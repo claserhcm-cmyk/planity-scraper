@@ -3,6 +3,12 @@ import requests
 from datetime import datetime
 from playwright.sync_api import sync_playwright
 
+try:
+    from playwright_stealth import stealth_sync
+    HAS_STEALTH = True
+except ImportError:
+    HAS_STEALTH = False
+
 # ============================================================
 # CONFIG — via variables d'environnement Railway
 # ============================================================
@@ -42,12 +48,13 @@ def login_planity(page):
     pwd_loc.click()
     pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
     page.keyboard.press("Enter")
-    # Attendre que le dashboard post-login soit rendu (onglet "Agenda" visible)
+    # Attendre que le formulaire de login disparaisse (= login réussi)
     try:
-        page.wait_for_selector("text=Agenda", timeout=30000)
-        print("Dashboard chargé !")
+        page.wait_for_selector("input[type='password']", state="hidden", timeout=30000)
+        print("Login accepté, chargement du dashboard...")
+        page.wait_for_timeout(4000)  # laisser React rendre le dashboard
     except Exception:
-        page.wait_for_load_state("networkidle", timeout=30000)
+        page.wait_for_timeout(5000)
     print("Connecté !")
 
 
@@ -59,12 +66,12 @@ def get_today_appointments(page):
     # Après login on est déjà sur l'agenda (pro.planity.com/)
     print(f"URL actuelle: {page.url}")
 
-    # Attendre que le calendrier soit visible
+    # Attendre que le calendrier soit chargé (input password disparu = on n'est plus sur login)
     try:
-        page.wait_for_selector("text=Agenda", state="visible", timeout=15000)
-        page.wait_for_timeout(3000)  # laisser le calendrier se rendre
+        page.wait_for_selector("input[type='password']", state="hidden", timeout=10000)
+        page.wait_for_timeout(3000)
     except Exception:
-        page.wait_for_timeout(8000)
+        page.wait_for_timeout(5000)
 
     # Debug large : texte du body + compte d'éléments
     page_debug = page.evaluate("""() => {
@@ -274,9 +281,30 @@ def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-blink-features=AutomationControlled",
+            ]
         )
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            viewport={"width": 1280, "height": 900},
+            locale="fr-FR",
+            timezone_id="Europe/Paris",
+        )
+        page = context.new_page()
+        # Masquer les signaux de bot (webdriver, chrome runtime, plugins)
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['fr-FR', 'fr', 'en-US']});
+            window.chrome = { runtime: {}, loadTimes: function(){}, csi: function(){}, app: {} };
+        """)
+        if HAS_STEALTH:
+            stealth_sync(page)
+            print("Stealth activé")
         try:
             login_planity(page)
             rdvs = get_today_appointments(page)
@@ -296,6 +324,7 @@ def main():
             import traceback
             traceback.print_exc()
         finally:
+            context.close()
             browser.close()
 
 
