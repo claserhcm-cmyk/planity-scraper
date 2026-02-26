@@ -51,31 +51,48 @@ def get_today_appointments(page):
     rdvs = []
     today = datetime.now().strftime("%Y-%m-%d")
 
-    page.goto("https://pro.planity.com/agenda", wait_until="networkidle", timeout=30000)
+    # Après login on est déjà sur l'agenda (pro.planity.com/)
+    # S'assurer d'être en vue "Aujourd'hui" / "Vue jour"
+    try:
+        page.click("text=Aujourd'hui", timeout=5000)
+        page.wait_for_timeout(2000)
+    except Exception:
+        pass
 
-    # DEBUG temporaire : trouver les vraies classes des blocs RDV
-    debug = page.evaluate("""() => {
+    # Trouver les blocs RDV : éléments avec fond coloré contenant un horaire HH:MM - HH:MM
+    rdv_info = page.evaluate("""() => {
+        const timePattern = /\\d{2}:\\d{2}\\s*-\\s*\\d{2}:\\d{2}/;
         const seen = new Set();
         const results = [];
         document.querySelectorAll('*').forEach(el => {
             if (el.offsetParent === null) return;
-            const cls = (typeof el.className === 'string') ? el.className.trim() : '';
-            const txt = (el.innerText || '').trim().substring(0, 60);
-            if (cls && txt && !seen.has(cls)) {
-                seen.add(cls);
-                results.push({ tag: el.tagName, cls, txt });
+            const bg = window.getComputedStyle(el).backgroundColor;
+            if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent' || bg === 'rgb(255, 255, 255)') return;
+            const text = (el.innerText || '').trim();
+            const key = text.substring(0, 50);
+            if (timePattern.test(text) && text.length < 300 && text.length > 5 && !seen.has(key)) {
+                seen.add(key);
+                results.push({
+                    cls: el.className.substring(0, 120),
+                    text: text.substring(0, 150),
+                    bg
+                });
             }
         });
-        return results.slice(0, 60);
+        return results;
     }""")
-    print("=== DEBUG agenda DOM ===")
-    for el in debug:
-        print(f"  <{el['tag']}> cls='{el['cls']}' txt='{el['txt']}'")
 
-    rdv_elements = page.query_selector_all(
-        "[class*='appointment'], [class*='rdv'], [class*='event'], [data-appointment]"
-    )
-    print(f"Nombre de RDV trouvés : {len(rdv_elements)}")
+    print(f"=== Blocs RDV détectés ({len(rdv_info)}) ===")
+    for r in rdv_info:
+        print(f"  bg={r['bg']} | txt='{r['text'][:80]}'")
+    print(f"Nombre de RDV trouvés : {len(rdv_info)}")
+
+    rdv_elements = []
+    if rdv_info:
+        # Récupérer les éléments Playwright à partir de la première classe commune détectée
+        first_cls = rdv_info[0].get("cls", "").split()[0] if rdv_info[0].get("cls") else ""
+        if first_cls:
+            rdv_elements = page.query_selector_all(f".{first_cls}")
 
     for i, rdv_el in enumerate(rdv_elements):
         try:
