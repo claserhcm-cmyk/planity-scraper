@@ -21,30 +21,35 @@ def login_planity(page):
     page.fill("input[type='email'], input[name='email']", PLANITY_EMAIL)
     print("Email rempli")
 
-    # Soumettre l'étape email via Enter (le plus universel)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(3000)
-    print(f"URL après Enter: {page.url}")
-
-    # Si le champ password n'est pas encore là, chercher un bouton submit
-    if not page.query_selector("input[type='password']"):
-        print("Password non visible, tentative clic bouton...")
+    # Debug : lister tous les boutons et leur texte
+    for btn in page.query_selector_all("button"):
         try:
-            page.click("button[type='submit']", timeout=4000)
-            page.wait_for_timeout(2000)
-        except Exception as e:
-            print(f"Pas de bouton submit: {e}")
+            print(f"  Bouton: '{btn.inner_text()[:60].strip()}' visible={btn.is_visible()} type={btn.get_attribute('type')}")
+        except Exception:
+            pass
 
-        # Sauvegarder le HTML pour debug
-        html = page.content()
-        print(f"Boutons sur la page: {[b for b in ['Continuer','Suivant','Next','Connexion','Login'] if b.lower() in html.lower()]}")
+    # Formulaire 1 étape : password déjà visible
+    if page.is_visible("input[type='password']"):
+        print("Formulaire 1 étape : remplissage direct du mot de passe")
+        page.fill("input[type='password']", PLANITY_PASSWORD)
+    else:
+        # Formulaire 2 étapes : soumettre l'email pour afficher le password
+        print("Formulaire 2 étapes : soumission de l'email...")
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(3000)
 
-    # Étape 2 : mot de passe
-    page.wait_for_selector("input[type='password']", timeout=15000)
-    page.fill("input[type='password']", PLANITY_PASSWORD)
+        if not page.is_visible("input[type='password']"):
+            print("Toujours pas visible, clic sur button[type='submit']...")
+            try:
+                page.click("button[type='submit']", timeout=3000)
+                page.wait_for_timeout(3000)
+            except Exception as e:
+                print(f"Bouton submit: {e}")
+
+        page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
+        page.fill("input[type='password']", PLANITY_PASSWORD)
+
     print("Mot de passe rempli")
-
-    # Soumettre via Enter puis bouton
     page.keyboard.press("Enter")
     page.wait_for_load_state("networkidle", timeout=30000)
     print(f"URL finale: {page.url}")
