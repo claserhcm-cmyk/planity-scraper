@@ -52,40 +52,57 @@ def get_today_appointments(page):
     today = datetime.now().strftime("%Y-%m-%d")
 
     # Après login on est déjà sur l'agenda (pro.planity.com/)
-    # S'assurer d'être en vue "Aujourd'hui" / "Vue jour"
-    try:
-        page.click("text=Aujourd'hui", timeout=5000)
-        page.wait_for_timeout(2000)
-    except Exception:
-        pass
+    print(f"URL actuelle: {page.url}")
 
-    # Trouver les blocs RDV : éléments avec fond coloré contenant un horaire HH:MM - HH:MM
-    rdv_info = page.evaluate("""() => {
-        const timePattern = /\\d{2}:\\d{2}\\s*-\\s*\\d{2}:\\d{2}/;
+    # Attendre que le calendrier soit chargé
+    page.wait_for_timeout(4000)
+
+    # Debug : URL et quelques éléments visibles pour confirmer on est bien sur l'agenda
+    page_debug = page.evaluate("""() => {
+        const texts = [];
+        document.querySelectorAll('a, button, h1, h2, nav *').forEach(el => {
+            const t = (el.innerText || '').trim().substring(0, 40);
+            if (t) texts.push(t);
+        });
+        return { url: window.location.href, texts: [...new Set(texts)].slice(0, 30) };
+    }""")
+    print(f"URL page: {page_debug['url']}")
+    print(f"Éléments nav/liens: {page_debug['texts']}")
+
+    # Chercher des horaires HH:MM - HH:MM SANS filtre couleur (pour debug)
+    time_elements = page.evaluate("""() => {
+        const timePattern = /\\d{2}:\\d{2}\\s*[-–]\\s*\\d{2}:\\d{2}/;
         const seen = new Set();
         const results = [];
         document.querySelectorAll('*').forEach(el => {
-            if (el.offsetParent === null) return;
-            const bg = window.getComputedStyle(el).backgroundColor;
-            if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent' || bg === 'rgb(255, 255, 255)') return;
             const text = (el.innerText || '').trim();
-            const key = text.substring(0, 50);
-            if (timePattern.test(text) && text.length < 300 && text.length > 5 && !seen.has(key)) {
+            const key = text.substring(0, 60);
+            if (timePattern.test(text) && text.length < 250 && !seen.has(key)) {
                 seen.add(key);
+                const bg = window.getComputedStyle(el).backgroundColor;
                 results.push({
-                    cls: el.className.substring(0, 120),
-                    text: text.substring(0, 150),
-                    bg
+                    tag: el.tagName,
+                    cls: el.className.substring(0, 100),
+                    text: text.substring(0, 100),
+                    bg,
+                    childCount: el.children.length
                 });
             }
         });
-        return results;
+        return results.slice(0, 40);
     }""")
 
-    print(f"=== Blocs RDV détectés ({len(rdv_info)}) ===")
-    for r in rdv_info:
-        print(f"  bg={r['bg']} | txt='{r['text'][:80]}'")
-    print(f"Nombre de RDV trouvés : {len(rdv_info)}")
+    print(f"=== Éléments avec horaires (sans filtre couleur) : {len(time_elements)} ===")
+    for el in time_elements:
+        print(f"  <{el['tag']}> children={el['childCount']} bg={el['bg']} | txt='{el['text'][:70]}'")
+    print(f"Nombre de RDV trouvés : {len(time_elements)}")
+
+    # Identifier les blocs feuilles (sans enfants ou peu d'enfants) avec fond coloré
+    rdv_info = [
+        el for el in time_elements
+        if el['childCount'] <= 5
+        and el['bg'] not in ('rgba(0, 0, 0, 0)', 'transparent', 'rgb(255, 255, 255)', 'rgb(242, 242, 242)', 'rgb(250, 250, 250)')
+    ]
 
     rdv_elements = []
     if rdv_info:
