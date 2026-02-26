@@ -13,11 +13,32 @@ N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL")
 
 def login_planity(page):
     print("Connexion à Planity...")
-    page.goto("https://pro.planity.com", wait_until="networkidle", timeout=30000)
+    page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
 
-    page.fill("input[type='email'], input[name='email'], input[placeholder*='mail']", PLANITY_EMAIL)
+    # Étape 1 : email
+    page.wait_for_selector("input[type='email'], input[name='email']", timeout=15000)
+    page.fill("input[type='email'], input[name='email']", PLANITY_EMAIL)
+    print("Email rempli")
+
+    # Clic sur Continuer / Suivant si login en 2 étapes
+    try:
+        page.click(
+            "button[type='submit'], button:has-text('Continuer'), button:has-text('Suivant'), button:has-text('Next')",
+            timeout=5000
+        )
+        print("Bouton étape 1 cliqué")
+        page.wait_for_timeout(2000)
+    except Exception:
+        pass  # Formulaire en une seule étape
+
+    # Étape 2 : mot de passe
+    page.wait_for_selector("input[type='password']", timeout=15000)
     page.fill("input[type='password']", PLANITY_PASSWORD)
-    page.click("button[type='submit'], button.login, button.connexion")
+    print("Mot de passe rempli")
+
+    page.click(
+        "button[type='submit'], button:has-text('Connexion'), button:has-text('Se connecter'), button.login"
+    )
     page.wait_for_load_state("networkidle", timeout=30000)
     print("Connecté !")
 
