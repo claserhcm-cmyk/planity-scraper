@@ -42,7 +42,12 @@ def login_planity(page):
     pwd_loc.click()
     pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
     page.keyboard.press("Enter")
-    page.wait_for_load_state("networkidle", timeout=30000)
+    # Attendre que le dashboard post-login soit rendu (onglet "Agenda" visible)
+    try:
+        page.wait_for_selector("text=Agenda", timeout=30000)
+        print("Dashboard chargé !")
+    except Exception:
+        page.wait_for_load_state("networkidle", timeout=30000)
     print("Connecté !")
 
 
@@ -54,20 +59,30 @@ def get_today_appointments(page):
     # Après login on est déjà sur l'agenda (pro.planity.com/)
     print(f"URL actuelle: {page.url}")
 
-    # Attendre que le calendrier soit chargé
-    page.wait_for_timeout(4000)
+    # Attendre que le calendrier soit visible
+    try:
+        page.wait_for_selector("text=Agenda", state="visible", timeout=15000)
+        page.wait_for_timeout(3000)  # laisser le calendrier se rendre
+    except Exception:
+        page.wait_for_timeout(8000)
 
-    # Debug : URL et quelques éléments visibles pour confirmer on est bien sur l'agenda
+    # Debug large : texte du body + compte d'éléments
     page_debug = page.evaluate("""() => {
-        const texts = [];
-        document.querySelectorAll('a, button, h1, h2, nav *').forEach(el => {
-            const t = (el.innerText || '').trim().substring(0, 40);
-            if (t) texts.push(t);
+        const allTexts = [];
+        document.querySelectorAll('*').forEach(el => {
+            const t = (el.innerText || '').trim();
+            if (t.length > 2 && t.length < 50 && !allTexts.includes(t)) allTexts.push(t);
         });
-        return { url: window.location.href, texts: [...new Set(texts)].slice(0, 30) };
+        return {
+            url: window.location.href,
+            elemCount: document.querySelectorAll('*').length,
+            bodySnippet: (document.body ? document.body.innerText : '').substring(0, 300),
+            texts: allTexts.slice(0, 40)
+        };
     }""")
-    print(f"URL page: {page_debug['url']}")
-    print(f"Éléments nav/liens: {page_debug['texts']}")
+    print(f"URL: {page_debug['url']} | éléments DOM: {page_debug['elemCount']}")
+    print(f"Body: {page_debug['bodySnippet'][:200]}")
+    print(f"Textes: {page_debug['texts']}")
 
     # Chercher des horaires HH:MM - HH:MM SANS filtre couleur (pour debug)
     time_elements = page.evaluate("""() => {
