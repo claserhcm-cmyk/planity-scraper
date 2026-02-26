@@ -14,69 +14,35 @@ N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL")
 def login_planity(page):
     print("Connexion à Planity...")
     page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
-    print(f"URL: {page.url}")
 
-    # Attendre et cliquer sur le champ email
     email_loc = page.locator("input[type='email'], input[name='email']").first
     email_loc.wait_for(state="visible", timeout=15000)
     email_loc.click()
-    # press_sequentially déclenche les événements React onChange
     email_loc.press_sequentially(PLANITY_EMAIL, delay=50)
-    print("Email rempli")
     page.wait_for_timeout(1000)
 
-    # Debug complet via JS : inspecte TOUS les éléments interactifs du DOM
-    dom_info = page.evaluate("""() => {
-        const inputs = Array.from(document.querySelectorAll('input')).map(el => ({
-            tag: 'INPUT', type: el.type, name: el.name, id: el.id,
-            placeholder: el.placeholder,
-            visible: el.offsetParent !== null && el.style.display !== 'none' && el.style.visibility !== 'hidden'
-        }));
-        const clickables = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).map(el => ({
-            tag: el.tagName, type: el.type || '', role: el.getAttribute('role') || '',
-            text: (el.innerText || el.value || '').substring(0, 60).trim(),
-            cls: el.className.substring(0, 80),
-            visible: el.offsetParent !== null
-        })).filter(el => el.visible && el.text);
-        return { inputs, clickables };
-    }""")
-    print("=== DOM inputs ===")
-    for el in dom_info.get("inputs", []):
-        print(f"  {el}")
-    print("=== DOM clickables ===")
-    for el in dom_info.get("clickables", []):
-        print(f"  {el}")
-
-    if page.is_visible("input[type='password']"):
-        print("Password déjà visible — formulaire 1 étape")
-    else:
-        print("Password caché — soumission de l'email...")
-        # Tab déclenche blur → onChange React, puis Enter soumet
+    if not page.is_visible("input[type='password']"):
         page.keyboard.press("Tab")
         page.wait_for_timeout(2000)
-        if not page.is_visible("input[type='password']"):
-            page.keyboard.press("Enter")
-            page.wait_for_timeout(2000)
-        # Essayer input[type=submit] et [role=button]
-        if not page.is_visible("input[type='password']"):
-            for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
-                try:
-                    page.click(sel, timeout=2000)
-                    page.wait_for_timeout(2000)
-                    if page.is_visible("input[type='password']"):
-                        print(f"Débloqué via: {sel}")
-                        break
-                except Exception:
-                    pass
+    if not page.is_visible("input[type='password']"):
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(2000)
+    if not page.is_visible("input[type='password']"):
+        for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
+            try:
+                page.click(sel, timeout=2000)
+                page.wait_for_timeout(2000)
+                if page.is_visible("input[type='password']"):
+                    break
+            except Exception:
+                pass
 
     page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
     pwd_loc = page.locator("input[type='password']").first
     pwd_loc.click()
     pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
-    print("Mot de passe rempli")
     page.keyboard.press("Enter")
     page.wait_for_load_state("networkidle", timeout=30000)
-    print(f"URL finale: {page.url}")
     print("Connecté !")
 
 
@@ -86,37 +52,6 @@ def get_today_appointments(page):
     today = datetime.now().strftime("%Y-%m-%d")
 
     page.goto("https://pro.planity.com/agenda", wait_until="networkidle", timeout=30000)
-    print(f"URL agenda: {page.url}")
-
-    # Inspection DOM pour trouver les bons sélecteurs
-    agenda_info = page.evaluate("""() => {
-        // Classes uniques des éléments visibles (pour trouver les blocs RDV)
-        const allClasses = new Set();
-        document.querySelectorAll('*').forEach(el => {
-            if (el.offsetParent !== null && el.className && typeof el.className === 'string') {
-                el.className.split(' ').forEach(c => { if (c.length > 2) allClasses.add(c); });
-            }
-        });
-        // Chercher des classes qui ressemblent à des RDV
-        const rdvClasses = Array.from(allClasses).filter(c =>
-            /appoint|rdv|booking|slot|event|creneau|session|visit/i.test(c)
-        );
-        // Compter les éléments cliquables dans le calendrier
-        const divs = document.querySelectorAll('[class*="calendar"], [class*="agenda"], [class*="schedule"]');
-        return {
-            url: window.location.href,
-            title: document.title,
-            rdvClasses: rdvClasses.slice(0, 20),
-            calendarDivs: divs.length,
-            bodyText: document.body.innerText.substring(0, 300)
-        };
-    }""")
-    print(f"=== Agenda DOM ===")
-    print(f"  URL: {agenda_info.get('url')}")
-    print(f"  Title: {agenda_info.get('title')}")
-    print(f"  Classes RDV détectées: {agenda_info.get('rdvClasses')}")
-    print(f"  Divs calendrier: {agenda_info.get('calendarDivs')}")
-    print(f"  Body (300 chars): {agenda_info.get('bodyText', '').strip()[:300]}")
 
     rdv_elements = page.query_selector_all(
         "[class*='appointment'], [class*='rdv'], [class*='event'], [data-appointment]"
