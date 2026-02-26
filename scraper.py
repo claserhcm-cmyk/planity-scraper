@@ -15,31 +15,39 @@ def login_planity(page):
     print("Connexion à Planity...")
     page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
 
-    # Étape 1 : email
-    page.wait_for_selector("input[type='email'], input[name='email']", timeout=15000)
-    page.fill("input[type='email'], input[name='email']", PLANITY_EMAIL)
-    print("Email rempli")
+    email_loc = page.locator("input[type='email'], input[name='email']").first
+    email_loc.wait_for(state="visible", timeout=15000)
+    email_loc.click()
+    email_loc.press_sequentially(PLANITY_EMAIL, delay=50)
+    page.wait_for_timeout(1000)
 
-    # Clic sur Continuer / Suivant si login en 2 étapes
-    try:
-        page.click(
-            "button[type='submit'], button:has-text('Continuer'), button:has-text('Suivant'), button:has-text('Next')",
-            timeout=5000
-        )
-        print("Bouton étape 1 cliqué")
+    if not page.is_visible("input[type='password']"):
+        page.keyboard.press("Tab")
         page.wait_for_timeout(2000)
+    if not page.is_visible("input[type='password']"):
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(2000)
+    if not page.is_visible("input[type='password']"):
+        for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
+            try:
+                page.click(sel, timeout=2000)
+                page.wait_for_timeout(2000)
+                if page.is_visible("input[type='password']"):
+                    break
+            except Exception:
+                pass
+
+    page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
+    pwd_loc = page.locator("input[type='password']").first
+    pwd_loc.click()
+    pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
+    page.keyboard.press("Enter")
+    # Attendre que le dashboard post-login soit rendu (onglet "Agenda" visible)
+    try:
+        page.wait_for_selector("text=Agenda", timeout=30000)
+        print("Dashboard chargé !")
     except Exception:
-        pass  # Formulaire en une seule étape
-
-    # Étape 2 : mot de passe
-    page.wait_for_selector("input[type='password']", timeout=15000)
-    page.fill("input[type='password']", PLANITY_PASSWORD)
-    print("Mot de passe rempli")
-
-    page.click(
-        "button[type='submit'], button:has-text('Connexion'), button:has-text('Se connecter'), button.login"
-    )
-    page.wait_for_load_state("networkidle", timeout=30000)
+        page.wait_for_load_state("networkidle", timeout=30000)
     print("Connecté !")
 
 
@@ -48,12 +56,75 @@ def get_today_appointments(page):
     rdvs = []
     today = datetime.now().strftime("%Y-%m-%d")
 
-    page.goto("https://pro.planity.com/agenda", wait_until="networkidle", timeout=30000)
+    # Après login on est déjà sur l'agenda (pro.planity.com/)
+    print(f"URL actuelle: {page.url}")
 
-    rdv_elements = page.query_selector_all(
-        "[class*='appointment'], [class*='rdv'], [class*='event'], [data-appointment]"
-    )
-    print(f"Nombre de RDV trouvés : {len(rdv_elements)}")
+    # Attendre que le calendrier soit visible
+    try:
+        page.wait_for_selector("text=Agenda", state="visible", timeout=15000)
+        page.wait_for_timeout(3000)  # laisser le calendrier se rendre
+    except Exception:
+        page.wait_for_timeout(8000)
+
+    # Debug large : texte du body + compte d'éléments
+    page_debug = page.evaluate("""() => {
+        const allTexts = [];
+        document.querySelectorAll('*').forEach(el => {
+            const t = (el.innerText || '').trim();
+            if (t.length > 2 && t.length < 50 && !allTexts.includes(t)) allTexts.push(t);
+        });
+        return {
+            url: window.location.href,
+            elemCount: document.querySelectorAll('*').length,
+            bodySnippet: (document.body ? document.body.innerText : '').substring(0, 300),
+            texts: allTexts.slice(0, 40)
+        };
+    }""")
+    print(f"URL: {page_debug['url']} | éléments DOM: {page_debug['elemCount']}")
+    print(f"Body: {page_debug['bodySnippet'][:200]}")
+    print(f"Textes: {page_debug['texts']}")
+
+    # Chercher des horaires HH:MM - HH:MM SANS filtre couleur (pour debug)
+    time_elements = page.evaluate("""() => {
+        const timePattern = /\\d{2}:\\d{2}\\s*[-–]\\s*\\d{2}:\\d{2}/;
+        const seen = new Set();
+        const results = [];
+        document.querySelectorAll('*').forEach(el => {
+            const text = (el.innerText || '').trim();
+            const key = text.substring(0, 60);
+            if (timePattern.test(text) && text.length < 250 && !seen.has(key)) {
+                seen.add(key);
+                const bg = window.getComputedStyle(el).backgroundColor;
+                results.push({
+                    tag: el.tagName,
+                    cls: el.className.substring(0, 100),
+                    text: text.substring(0, 100),
+                    bg,
+                    childCount: el.children.length
+                });
+            }
+        });
+        return results.slice(0, 40);
+    }""")
+
+    print(f"=== Éléments avec horaires (sans filtre couleur) : {len(time_elements)} ===")
+    for el in time_elements:
+        print(f"  <{el['tag']}> children={el['childCount']} bg={el['bg']} | txt='{el['text'][:70]}'")
+    print(f"Nombre de RDV trouvés : {len(time_elements)}")
+
+    # Identifier les blocs feuilles (sans enfants ou peu d'enfants) avec fond coloré
+    rdv_info = [
+        el for el in time_elements
+        if el['childCount'] <= 5
+        and el['bg'] not in ('rgba(0, 0, 0, 0)', 'transparent', 'rgb(255, 255, 255)', 'rgb(242, 242, 242)', 'rgb(250, 250, 250)')
+    ]
+
+    rdv_elements = []
+    if rdv_info:
+        # Récupérer les éléments Playwright à partir de la première classe commune détectée
+        first_cls = rdv_info[0].get("cls", "").split()[0] if rdv_info[0].get("cls") else ""
+        if first_cls:
+            rdv_elements = page.query_selector_all(f".{first_cls}")
 
     for i, rdv_el in enumerate(rdv_elements):
         try:
