@@ -53,6 +53,25 @@ def get_today_appointments(page):
 
     page.goto("https://pro.planity.com/agenda", wait_until="networkidle", timeout=30000)
 
+    # DEBUG temporaire : trouver les vraies classes des blocs RDV
+    debug = page.evaluate("""() => {
+        const seen = new Set();
+        const results = [];
+        document.querySelectorAll('*').forEach(el => {
+            if (el.offsetParent === null) return;
+            const cls = (typeof el.className === 'string') ? el.className.trim() : '';
+            const txt = (el.innerText || '').trim().substring(0, 60);
+            if (cls && txt && !seen.has(cls)) {
+                seen.add(cls);
+                results.push({ tag: el.tagName, cls, txt });
+            }
+        });
+        return results.slice(0, 60);
+    }""")
+    print("=== DEBUG agenda DOM ===")
+    for el in debug:
+        print(f"  <{el['tag']}> cls='{el['cls']}' txt='{el['txt']}'")
+
     rdv_elements = page.query_selector_all(
         "[class*='appointment'], [class*='rdv'], [class*='event'], [data-appointment]"
     )
