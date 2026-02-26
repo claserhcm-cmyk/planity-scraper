@@ -86,6 +86,37 @@ def get_today_appointments(page):
     today = datetime.now().strftime("%Y-%m-%d")
 
     page.goto("https://pro.planity.com/agenda", wait_until="networkidle", timeout=30000)
+    print(f"URL agenda: {page.url}")
+
+    # Inspection DOM pour trouver les bons sélecteurs
+    agenda_info = page.evaluate("""() => {
+        // Classes uniques des éléments visibles (pour trouver les blocs RDV)
+        const allClasses = new Set();
+        document.querySelectorAll('*').forEach(el => {
+            if (el.offsetParent !== null && el.className && typeof el.className === 'string') {
+                el.className.split(' ').forEach(c => { if (c.length > 2) allClasses.add(c); });
+            }
+        });
+        // Chercher des classes qui ressemblent à des RDV
+        const rdvClasses = Array.from(allClasses).filter(c =>
+            /appoint|rdv|booking|slot|event|creneau|session|visit/i.test(c)
+        );
+        // Compter les éléments cliquables dans le calendrier
+        const divs = document.querySelectorAll('[class*="calendar"], [class*="agenda"], [class*="schedule"]');
+        return {
+            url: window.location.href,
+            title: document.title,
+            rdvClasses: rdvClasses.slice(0, 20),
+            calendarDivs: divs.length,
+            bodyText: document.body.innerText.substring(0, 300)
+        };
+    }""")
+    print(f"=== Agenda DOM ===")
+    print(f"  URL: {agenda_info.get('url')}")
+    print(f"  Title: {agenda_info.get('title')}")
+    print(f"  Classes RDV détectées: {agenda_info.get('rdvClasses')}")
+    print(f"  Divs calendrier: {agenda_info.get('calendarDivs')}")
+    print(f"  Body (300 chars): {agenda_info.get('bodyText', '').strip()[:300]}")
 
     rdv_elements = page.query_selector_all(
         "[class*='appointment'], [class*='rdv'], [class*='event'], [data-appointment]"
