@@ -25,12 +25,27 @@ def login_planity(page):
     print("Email rempli")
     page.wait_for_timeout(1000)
 
-    # Debug : lister tous les inputs présents
-    for inp in page.query_selector_all("input"):
-        try:
-            print(f"  Input: type={inp.get_attribute('type')} name={inp.get_attribute('name')} id={inp.get_attribute('id')} visible={inp.is_visible()}")
-        except Exception:
-            pass
+    # Debug complet via JS : inspecte TOUS les éléments interactifs du DOM
+    dom_info = page.evaluate("""() => {
+        const inputs = Array.from(document.querySelectorAll('input')).map(el => ({
+            tag: 'INPUT', type: el.type, name: el.name, id: el.id,
+            placeholder: el.placeholder,
+            visible: el.offsetParent !== null && el.style.display !== 'none' && el.style.visibility !== 'hidden'
+        }));
+        const clickables = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], a')).map(el => ({
+            tag: el.tagName, type: el.type || '', role: el.getAttribute('role') || '',
+            text: (el.innerText || el.value || '').substring(0, 60).trim(),
+            cls: el.className.substring(0, 80),
+            visible: el.offsetParent !== null
+        })).filter(el => el.visible && el.text);
+        return { inputs, clickables };
+    }""")
+    print("=== DOM inputs ===")
+    for el in dom_info.get("inputs", []):
+        print(f"  {el}")
+    print("=== DOM clickables ===")
+    for el in dom_info.get("clickables", []):
+        print(f"  {el}")
 
     if page.is_visible("input[type='password']"):
         print("Password déjà visible — formulaire 1 étape")
