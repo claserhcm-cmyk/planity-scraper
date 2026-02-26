@@ -14,32 +14,40 @@ N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL")
 def login_planity(page):
     print("Connexion à Planity...")
     page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
+    print(f"URL: {page.url}")
 
     # Étape 1 : email
     page.wait_for_selector("input[type='email'], input[name='email']", timeout=15000)
     page.fill("input[type='email'], input[name='email']", PLANITY_EMAIL)
     print("Email rempli")
 
-    # Clic sur Continuer / Suivant si login en 2 étapes
-    try:
-        page.click(
-            "button[type='submit'], button:has-text('Continuer'), button:has-text('Suivant'), button:has-text('Next')",
-            timeout=5000
-        )
-        print("Bouton étape 1 cliqué")
-        page.wait_for_timeout(2000)
-    except Exception:
-        pass  # Formulaire en une seule étape
+    # Soumettre l'étape email via Enter (le plus universel)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(3000)
+    print(f"URL après Enter: {page.url}")
+
+    # Si le champ password n'est pas encore là, chercher un bouton submit
+    if not page.query_selector("input[type='password']"):
+        print("Password non visible, tentative clic bouton...")
+        try:
+            page.click("button[type='submit']", timeout=4000)
+            page.wait_for_timeout(2000)
+        except Exception as e:
+            print(f"Pas de bouton submit: {e}")
+
+        # Sauvegarder le HTML pour debug
+        html = page.content()
+        print(f"Boutons sur la page: {[b for b in ['Continuer','Suivant','Next','Connexion','Login'] if b.lower() in html.lower()]}")
 
     # Étape 2 : mot de passe
     page.wait_for_selector("input[type='password']", timeout=15000)
     page.fill("input[type='password']", PLANITY_PASSWORD)
     print("Mot de passe rempli")
 
-    page.click(
-        "button[type='submit'], button:has-text('Connexion'), button:has-text('Se connecter'), button.login"
-    )
+    # Soumettre via Enter puis bouton
+    page.keyboard.press("Enter")
     page.wait_for_load_state("networkidle", timeout=30000)
+    print(f"URL finale: {page.url}")
     print("Connecté !")
 
 
