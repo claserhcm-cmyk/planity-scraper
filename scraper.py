@@ -16,39 +16,48 @@ def login_planity(page):
     page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
     print(f"URL: {page.url}")
 
-    # Étape 1 : email
-    page.wait_for_selector("input[type='email'], input[name='email']", timeout=15000)
-    page.fill("input[type='email'], input[name='email']", PLANITY_EMAIL)
+    # Attendre et cliquer sur le champ email
+    email_loc = page.locator("input[type='email'], input[name='email']").first
+    email_loc.wait_for(state="visible", timeout=15000)
+    email_loc.click()
+    # press_sequentially déclenche les événements React onChange
+    email_loc.press_sequentially(PLANITY_EMAIL, delay=50)
     print("Email rempli")
+    page.wait_for_timeout(1000)
 
-    # Debug : lister tous les boutons et leur texte
-    for btn in page.query_selector_all("button"):
+    # Debug : lister tous les inputs présents
+    for inp in page.query_selector_all("input"):
         try:
-            print(f"  Bouton: '{btn.inner_text()[:60].strip()}' visible={btn.is_visible()} type={btn.get_attribute('type')}")
+            print(f"  Input: type={inp.get_attribute('type')} name={inp.get_attribute('name')} id={inp.get_attribute('id')} visible={inp.is_visible()}")
         except Exception:
             pass
 
-    # Formulaire 1 étape : password déjà visible
     if page.is_visible("input[type='password']"):
-        print("Formulaire 1 étape : remplissage direct du mot de passe")
-        page.fill("input[type='password']", PLANITY_PASSWORD)
+        print("Password déjà visible — formulaire 1 étape")
     else:
-        # Formulaire 2 étapes : soumettre l'email pour afficher le password
-        print("Formulaire 2 étapes : soumission de l'email...")
-        page.keyboard.press("Enter")
-        page.wait_for_timeout(3000)
-
+        print("Password caché — soumission de l'email...")
+        # Tab déclenche blur → onChange React, puis Enter soumet
+        page.keyboard.press("Tab")
+        page.wait_for_timeout(2000)
         if not page.is_visible("input[type='password']"):
-            print("Toujours pas visible, clic sur button[type='submit']...")
-            try:
-                page.click("button[type='submit']", timeout=3000)
-                page.wait_for_timeout(3000)
-            except Exception as e:
-                print(f"Bouton submit: {e}")
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(2000)
+        # Essayer input[type=submit] et [role=button]
+        if not page.is_visible("input[type='password']"):
+            for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
+                try:
+                    page.click(sel, timeout=2000)
+                    page.wait_for_timeout(2000)
+                    if page.is_visible("input[type='password']"):
+                        print(f"Débloqué via: {sel}")
+                        break
+                except Exception:
+                    pass
 
-        page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
-        page.fill("input[type='password']", PLANITY_PASSWORD)
-
+    page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
+    pwd_loc = page.locator("input[type='password']").first
+    pwd_loc.click()
+    pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
     print("Mot de passe rempli")
     page.keyboard.press("Enter")
     page.wait_for_load_state("networkidle", timeout=30000)
