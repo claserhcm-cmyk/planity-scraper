@@ -20,39 +20,52 @@ N8N_WEBHOOK_URL = os.environ.get("N8N_WEBHOOK_URL")
 def login_planity(page):
     print("Connexion à Planity...")
     page.goto("https://pro.planity.com", wait_until="domcontentloaded", timeout=60000)
+    page.wait_for_timeout(2000)
 
-    email_loc = page.locator("input[type='email'], input[name='email']").first
-    email_loc.wait_for(state="visible", timeout=15000)
-    email_loc.click()
-    email_loc.press_sequentially(PLANITY_EMAIL, delay=50)
-    page.wait_for_timeout(1000)
+    # Fermer tout bandeau cookie/RGPD qui pourrait bloquer les interactions
+    for sel in [
+        "button:has-text('Accepter')", "button:has-text('Accept')",
+        "button:has-text('J\\'accepte')", "button:has-text('OK')",
+        "[id*='cookie'] button", "[class*='cookie'] button",
+        "[id*='consent'] button", "[class*='consent'] button",
+    ]:
+        try:
+            page.click(sel, timeout=1500)
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
 
+    # Remplir email avec fill() — pas besoin de clic préalable
+    email_sel = "input[type='email'], input[name='email']"
+    page.wait_for_selector(email_sel, state="visible", timeout=15000)
+    page.fill(email_sel, PLANITY_EMAIL)
+    page.wait_for_timeout(800)
+
+    # Afficher le champ mot de passe si nécessaire
     if not page.is_visible("input[type='password']"):
         page.keyboard.press("Tab")
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1500)
     if not page.is_visible("input[type='password']"):
         page.keyboard.press("Enter")
         page.wait_for_timeout(2000)
-    if not page.is_visible("input[type='password']"):
-        for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
-            try:
-                page.click(sel, timeout=2000)
-                page.wait_for_timeout(2000)
-                if page.is_visible("input[type='password']"):
-                    break
-            except Exception:
-                pass
+    for sel in ["input[type='submit']", "[role='button']", "a[class*='button']", "a[class*='btn']"]:
+        if page.is_visible("input[type='password']"):
+            break
+        try:
+            page.click(sel, timeout=1500)
+            page.wait_for_timeout(1500)
+        except Exception:
+            pass
 
     page.wait_for_selector("input[type='password']", state="visible", timeout=15000)
-    pwd_loc = page.locator("input[type='password']").first
-    pwd_loc.click()
-    pwd_loc.press_sequentially(PLANITY_PASSWORD, delay=50)
+    page.fill("input[type='password']", PLANITY_PASSWORD)
     page.keyboard.press("Enter")
-    # Attendre que le formulaire de login disparaisse (= login réussi)
+
+    # Attendre que le formulaire disparaisse = login accepté
     try:
         page.wait_for_selector("input[type='password']", state="hidden", timeout=30000)
         print("Login accepté, chargement du dashboard...")
-        page.wait_for_timeout(4000)  # laisser React rendre le dashboard
+        page.wait_for_timeout(4000)
     except Exception:
         page.wait_for_timeout(5000)
     print("Connecté !")
