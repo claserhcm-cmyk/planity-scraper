@@ -1,0 +1,235 @@
+{
+  "name": "Planity – Rattrapage RDV existants (Mars+)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "backfill-node-001",
+      "name": "Démarrer le rattrapage",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "from:noreply@planity.com after:2026/03/01"
+        },
+        "options": {
+          "format": "resolved"
+        }
+      },
+      "id": "backfill-node-002",
+      "name": "Gmail – Récupérer emails Planity (Rattrapage)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "gmailOAuth2": { "id": "GMAIL_CRED_ID", "name": "Gmail claser.hcm" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ────────────────────────────────────────────────────────────────────\n// NORMALISER l'email Gmail (Get Many) au format attendu par le parser\n// Compatible avec format 'resolved' ET format 'full' (brut API Gmail)\n// ────────────────────────────────────────────────────────────────────\nconst msg = $json;\n\n// Avec format 'resolved', n8n fournit déjà html, subject, from\nlet subject = msg.subject || '';\nlet from    = msg.from    || '';\nlet html    = msg.html    || msg.text || msg.snippet || '';\n\n// Fallback si format brut (payload Gmail API avec base64)\nfunction extractFromPayload(payload) {\n  if (!payload) return { subject: '', from: '', html: '' };\n  const headers = payload.headers || [];\n  const getH = (n) => (headers.find(h => h.name.toLowerCase() === n.toLowerCase()) || {}).value || '';\n  function extractHtml(p) {\n    if (!p) return '';\n    if (p.mimeType === 'text/html' && p.body && p.body.data) {\n      try { return Buffer.from(p.body.data, 'base64').toString('utf-8'); } catch(e) { return ''; }\n    }\n    if (p.parts) {\n      for (const part of p.parts) { const r = extractHtml(part); if (r) return r; }\n    }\n    return '';\n  }\n  return { subject: getH('Subject'), from: getH('From'), html: extractHtml(payload) };\n}\n\nif (!html && msg.payload) {\n  const decoded = extractFromPayload(msg.payload);\n  subject = subject || decoded.subject;\n  from    = from    || decoded.from;\n  html    = decoded.html;\n}\n\nreturn [{ json: {\n  id:       msg.id,\n  threadId: msg.threadId,\n  subject,\n  from,\n  html,\n  snippet: msg.snippet || ''\n}}];\n"
+      },
+      "id": "backfill-node-003",
+      "name": "Normaliser email Gmail (Rattrapage)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ────────────────────────────────────────────────────────\n// PARSER EMAIL PLANITY → champs structurés\n// ────────────────────────────────────────────────────────\n\nconst email = $json;\nconst subject = email.subject || '';\nconst rawHtml  = email.html  || email.snippet || '';\n\n// 1. Décoder quoted-printable\nfunction decodeQP(s) {\n  return s\n    .replace(/=\\r?\\n/g, '')                                    // soft line breaks\n    .replace(/=([0-9A-Fa-f]{2})/g, (_, h) =>\n      String.fromCharCode(parseInt(h, 16)));                   // =C3=A9 → é\n}\n\n// 2. Supprimer les balises HTML\nfunction stripHtml(s) {\n  return s.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\\s+/g, ' ');\n}\n\nconst text = stripHtml(decodeQP(rawHtml));\n\n// 3. Détecter Confirmé vs Annulé\nconst isAnnule = /annul/i.test(subject);\nconst statut   = isAnnule ? 'Annulé' : 'Confirmé';\n\n// 4. Vérifier que c'est bien un email de RDV Planity\nconst isRdvPlanity = /noreply@planity\\.com/i.test(email.from || '')\n                  || /planity/i.test(subject);\nif (!isRdvPlanity) {\n  return [{ json: { _skip: true, raison: 'Email non Planity', subject } }];\n}\n\n// 5. Parser date + heures\n// Modèle : \"Date et heure du RDV : jeudi 26 février 2026 de 17:00 à 18:00\"\nconst MOIS = {\n  janvier:1, février:2, fevrier:2, mars:3, avril:4, mai:5, juin:6,\n  juillet:7, août:8, aout:8, septembre:9, octobre:10, novembre:11, décembre:12, decembre:12\n};\nconst rDate = /Date et heure du RDV\\s*:\\s*\\w+\\s+(\\d{1,2})\\s+(\\w+)\\s+(\\d{4})\\s+de\\s+(\\d{2}:\\d{2})\\s+[àa]\\s+(\\d{2}:\\d{2})/i;\nconst mDate = text.match(rDate);\n\nlet date_iso = '', heure_debut = '', heure_fin = '';\nif (mDate) {\n  const [, jour, mois, annee, h1, h2] = mDate;\n  const m = String(MOIS[mois.toLowerCase()] || 1).padStart(2, '0');\n  const j = String(parseInt(jour)).padStart(2, '0');\n  date_iso    = `${annee}-${m}-${j}`;\n  heure_debut = h1;\n  heure_fin   = h2;\n}\n\n// 6. Parser les champs client\nconst mNom    = text.match(/Nom\\s*:\\s*([^\\s]+)/i);\nconst mPrenom = text.match(/Pr[eé]nom\\s*:\\s*([^\\s]+)/i);\nconst mEmail  = text.match(/Courriel\\s*:\\s*([\\w.+%-]+@[\\w.-]+)/i);\nconst mTel    = text.match(/T[eé]l\\.?\\s*:\\s*([\\d\\s]{6,14})/i);\n\nconst client_nom    = mNom    ? mNom[1].trim()    : '';\nconst client_prenom = mPrenom ? mPrenom[1].trim() : '';\nconst client_tel    = mTel    ? mTel[1].trim()    : '';\nconst client_email  = mEmail  ? mEmail[1].trim()  : '';\nconst client        = `${client_prenom} ${client_nom}`.trim();\n\n// 7. Parser prestation + collaboratrice + salle\n// Modèle : \"- Microneedling RF – Soin Anti-Relâchement Visage de 17:00 à 18:00 (1h) avec Caroline, Salle 3\"\nconst rPrest = /-\\s+(.+?)\\s+de\\s+\\d{2}:\\d{2}\\s+[àa]\\s+\\d{2}:\\d{2}\\s+\\([\\dh]+\\)\\s+avec\\s+([^,]+),\\s+(.+?)(?:\\s*$|\\s+Cordialement)/i;\nconst mPrest = text.match(rPrest);\n\nconst prestation    = mPrest ? mPrest[1].trim() : '';\nconst collaboratrice= mPrest ? mPrest[2].trim() : '';\nconst salle         = mPrest ? mPrest[3].trim() : '';\n\n// Titre de la page Notion : \"prénom nom – prestation (date)\"\nconst titre = `${client} – ${prestation || 'RDV'} (${date_iso})`;\n\nreturn [{ json: {\n  _skip: false,\n  titre,\n  date_iso,\n  heure_debut,\n  heure_fin,\n  client,\n  client_nom,\n  client_prenom,\n  client_email,\n  client_tel,\n  prestation,\n  collaboratrice,\n  salle,\n  statut,\n  subject\n}}];\n"
+      },
+      "id": "backfill-node-004",
+      "name": "Parser l'email (Rattrapage)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "cond-skip-backfill",
+              "leftValue": "={{ $json._skip }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "backfill-node-005",
+      "name": "Email RDV valide ? (Rattrapage)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": {
+          "__rl": true,
+          "value": "TARIFS_DATABASE_ID",
+          "mode": "id"
+        },
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Prestation|title",
+              "condition": "equals",
+              "titleValue": "={{ $json.prestation }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "backfill-node-006",
+      "name": "Notion – Chercher prestation dans Tarifs (Rattrapage)",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1340, 220],
+      "credentials": {
+        "notionApi": { "id": "NOTION_CRED_ID", "name": "Notion Centre Esthétique" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Récupérer le prix depuis la base Tarifs\n// Si prestation non trouvée → prix = null (sera à remplir manuellement)\nconst rdv   = $('Parser l\\'email (Rattrapage)').first().json;\nconst items = $input.all();\n\nlet prix          = null;\nlet tarif_page_id = null;\n\nif (items.length > 0 && items[0].json) {\n  const props = items[0].json.properties || {};\n  // Champ Prix (number)\n  if (props['Prix (€)'] && props['Prix (€)'].number !== null) {\n    prix = props['Prix (€)'].number;\n  }\n  tarif_page_id = items[0].json.id || null;\n}\n\nreturn [{ json: { ...rdv, prix, tarif_page_id } }];\n"
+      },
+      "id": "backfill-node-007",
+      "name": "Extraire prix du tarif (Rattrapage)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 220]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": {
+          "__rl": true,
+          "value": "PLANNING_DATABASE_ID",
+          "mode": "id"
+        },
+        "title": "={{ $json.titre }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Date|date",
+              "dateValue": "={{ $json.date_iso }}"
+            },
+            {
+              "key": "Heure début|rich_text",
+              "textContent": "={{ $json.heure_debut }}"
+            },
+            {
+              "key": "Heure fin|rich_text",
+              "textContent": "={{ $json.heure_fin }}"
+            },
+            {
+              "key": "Client|rich_text",
+              "textContent": "={{ $json.client }}"
+            },
+            {
+              "key": "Téléphone|phone_number",
+              "phoneValue": "={{ $json.client_tel }}"
+            },
+            {
+              "key": "Email client|email",
+              "emailValue": "={{ $json.client_email }}"
+            },
+            {
+              "key": "Prestation|rich_text",
+              "textContent": "={{ $json.prestation }}"
+            },
+            {
+              "key": "Prix (€)|number",
+              "numberValue": "={{ $json.prix }}"
+            },
+            {
+              "key": "Collaboratrice|select",
+              "selectValue": "={{ $json.collaboratrice }}"
+            },
+            {
+              "key": "Salle|select",
+              "selectValue": "={{ $json.salle }}"
+            },
+            {
+              "key": "Statut|select",
+              "selectValue": "={{ $json.statut }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "backfill-node-008",
+      "name": "Notion – Créer RDV dans Planning (Rattrapage)",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1780, 220],
+      "credentials": {
+        "notionApi": { "id": "NOTION_CRED_ID", "name": "Notion Centre Esthétique" }
+      }
+    },
+    {
+      "parameters": {
+        "messageId": "={{ $('Normaliser email Gmail (Rattrapage)').item.json.id }}",
+        "options": {
+          "markAsRead": true
+        }
+      },
+      "id": "backfill-node-009",
+      "name": "Gmail – Marquer comme lu (Rattrapage)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [2000, 220],
+      "credentials": {
+        "gmailOAuth2": { "id": "GMAIL_CRED_ID", "name": "Gmail claser.hcm" }
+      }
+    }
+  ],
+  "connections": {
+    "Démarrer le rattrapage": {
+      "main": [[{ "node": "Gmail – Récupérer emails Planity (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Gmail – Récupérer emails Planity (Rattrapage)": {
+      "main": [[{ "node": "Normaliser email Gmail (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Normaliser email Gmail (Rattrapage)": {
+      "main": [[{ "node": "Parser l'email (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Parser l'email (Rattrapage)": {
+      "main": [[{ "node": "Email RDV valide ? (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Email RDV valide ? (Rattrapage)": {
+      "main": [
+        [{ "node": "Notion – Chercher prestation dans Tarifs (Rattrapage)", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Notion – Chercher prestation dans Tarifs (Rattrapage)": {
+      "main": [[{ "node": "Extraire prix du tarif (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Extraire prix du tarif (Rattrapage)": {
+      "main": [[{ "node": "Notion – Créer RDV dans Planning (Rattrapage)", "type": "main", "index": 0 }]]
+    },
+    "Notion – Créer RDV dans Planning (Rattrapage)": {
+      "main": [[{ "node": "Gmail – Marquer comme lu (Rattrapage)", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["planity", "notion", "gmail", "rattrapage"]
+}
