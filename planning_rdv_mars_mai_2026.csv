@@ -1,0 +1,54 @@
+Date du RDV;Jour;Heure début;Heure fin;Durée (min);Prénom;Nom;Téléphone;Email;Prestation;Prix (€);Praticienne;Cabine;Statut;Nouveau client;Commentaire
+02/03/2026;Lundi;09:00;10:00;60;Sophie;Martin;06 12 34 56 78;sophie.martin@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+02/03/2026;Lundi;10:30;11:00;30;Emma;Dubois;07 23 45 67 89;emma.dubois@gmail.com;Épilation sourcils fil;15;Sarah;Salle 2;Confirmé;Non;
+02/03/2026;Lundi;14:00;15:00;60;Lucie;Roux;06 34 56 78 90;lucie.roux@hotmail.fr;Lifting des cils;70;Sarah;Salle 2;Confirmé;Oui;Première venue
+03/03/2026;Mardi;09:30;11:00;90;Léa;Bernard;06 89 01 23 45;lea.bernard@gmail.com;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+03/03/2026;Mardi;14:00;15:30;90;Camille;Petit;07 56 78 90 12;camille.petit@outlook.fr;Massage relaxant dos;55;Marie;Salle 1;Confirmé;Non;
+05/03/2026;Jeudi;09:00;10:00;60;Julie;Thomas;06 45 67 89 01;julie.thomas@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Oui;
+05/03/2026;Jeudi;11:00;12:00;60;Marie;Durand;07 78 90 12 34;marie.durand@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Non;
+06/03/2026;Vendredi;10:00;10:30;30;Chloé;Leroy;06 90 12 34 56;chloe.leroy@gmail.com;Teinture sourcils + cils;25;Julie;Salle 2;Confirmé;Non;
+07/03/2026;Samedi;09:00;10:00;60;Inès;Moreau;07 12 34 56 78;ines.moreau@gmail.com;Pressothérapie;60;Marie;Salle 1;Confirmé;Non;
+10/03/2026;Mardi;09:30;10:30;60;Manon;Simon;06 23 45 67 89;manon.simon@outlook.fr;Pose ongles semi-permanent mains;45;Sarah;Salle 2;Confirmé;Non;
+10/03/2026;Mardi;14:00;15:00;60;Laura;Michel;06 56 78 90 12;laura.michel@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+12/03/2026;Jeudi;09:30;11:00;90;Anaïs;Garcia;07 34 56 78 90;anais.garcia@gmail.com;Épilation jambes complètes cire;45;Julie;Salle 1;Confirmé;Non;
+12/03/2026;Jeudi;15:00;16:00;60;Clara;Martinez;06 67 89 01 23;clara.martinez@gmail.com;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Annulé;Non;Annulé la veille au soir
+13/03/2026;Vendredi;10:00;11:30;90;Jade;Lefebvre;07 45 67 89 01;jade.lefebvre@hotmail.fr;Épilation maillot intégral cire;35;Julie;Salle 1;Confirmé;Non;
+14/03/2026;Samedi;09:00;09:30;30;Lucie;Roux;06 34 56 78 90;lucie.roux@hotmail.fr;Épilation sourcils fil;15;Sarah;Salle 2;Confirmé;Non;
+17/03/2026;Mardi;10:00;11:00;60;Pauline;Fontaine;06 78 90 12 34;pauline.fontaine@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Non;
+17/03/2026;Mardi;16:00;17:00;60;Charlotte;Blanc;07 56 78 90 12;charlotte.blanc@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Oui;Recommandée par Emma Dubois
+19/03/2026;Jeudi;10:00;11:00;60;Océane;Garnier;06 89 01 23 45;oceane.garnier@gmail.com;Massage relaxant dos;55;Marie;Salle 1;Confirmé;Non;
+20/03/2026;Vendredi;09:00;10:00;60;Alice;Morel;07 23 45 67 89;alice.morel@gmail.com;Pressothérapie;60;Marie;Salle 1;Confirmé;Non;
+24/03/2026;Mardi;15:00;16:00;60;Mathilde;Lambert;06 12 34 56 78;mathilde.lambert@outlook.fr;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+26/03/2026;Jeudi;17:00;18:00;60;Céline;Rousseau;07 90 12 34 56;celine.rousseau@gmail.com;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+27/03/2026;Vendredi;11:00;11:30;30;Aurélie;Nicolas;06 45 67 89 01;aurelie.nicolas@gmail.com;Teinture sourcils + cils;25;Sarah;Salle 2;Confirmé;Non;
+31/03/2026;Mardi;09:00;10:00;60;Virginie;Bertrand;07 12 34 56 78;virginie.bertrand@gmail.com;Soin corps enveloppement algues;75;Marie;Salle 1;Confirmé;Non;
+01/04/2026;Mercredi;10:00;11:00;60;Sophie;Martin;06 12 34 56 78;sophie.martin@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Non;
+02/04/2026;Jeudi;14:00;15:00;60;Nathalie;Vincent;06 56 78 90 12;nathalie.vincent@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Non;
+03/04/2026;Vendredi;09:30;11:00;90;Stéphanie;Mercier;07 23 45 67 89;stephanie.mercier@hotmail.fr;Épilation jambes complètes cire;45;Julie;Salle 1;Confirmé;Oui;
+07/04/2026;Mardi;10:00;11:00;60;Emma;Dubois;07 23 45 67 89;emma.dubois@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+08/04/2026;Mercredi;15:00;16:30;90;Léa;Bernard;06 89 01 23 45;lea.bernard@gmail.com;Massage relaxant corps;80;Marie;Salle 1;Confirmé;Non;
+09/04/2026;Jeudi;09:00;10:00;60;Camille;Petit;07 56 78 90 12;camille.petit@outlook.fr;Pressothérapie;60;Marie;Salle 1;Annulé;Non;Pas venue – injoignable
+10/04/2026;Vendredi;11:00;12:00;60;Manon;Simon;06 23 45 67 89;manon.simon@outlook.fr;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+14/04/2026;Mardi;09:00;09:30;30;Inès;Moreau;07 12 34 56 78;ines.moreau@gmail.com;Épilation sourcils fil;15;Sarah;Salle 2;Confirmé;Non;
+15/04/2026;Mercredi;14:00;15:00;60;Laura;Michel;06 56 78 90 12;laura.michel@gmail.com;Pose ongles semi-permanent mains;45;Sarah;Salle 2;Confirmé;Non;
+16/04/2026;Jeudi;10:00;11:00;60;Clara;Martinez;06 67 89 01 23;clara.martinez@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Non;
+21/04/2026;Mardi;09:00;10:00;60;Jade;Lefebvre;07 45 67 89 01;jade.lefebvre@hotmail.fr;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+22/04/2026;Mercredi;15:30;16:30;60;Pauline;Fontaine;06 78 90 12 34;pauline.fontaine@gmail.com;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+23/04/2026;Jeudi;10:00;11:30;90;Océane;Garnier;06 89 01 23 45;oceane.garnier@gmail.com;Épilation maillot intégral cire;35;Julie;Salle 1;Confirmé;Non;
+28/04/2026;Mardi;14:00;15:00;60;Alice;Morel;07 23 45 67 89;alice.morel@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Non;
+29/04/2026;Mercredi;09:00;10:00;60;Mathilde;Lambert;06 12 34 56 78;mathilde.lambert@outlook.fr;Pressothérapie;60;Marie;Salle 1;Confirmé;Non;
+30/04/2026;Jeudi;16:00;17:00;60;Céline;Rousseau;07 90 12 34 56;celine.rousseau@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Non;
+04/05/2026;Lundi;09:00;10:00;60;Virginie;Bertrand;07 12 34 56 78;virginie.bertrand@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+05/05/2026;Mardi;14:00;15:30;90;Nathalie;Vincent;06 56 78 90 12;nathalie.vincent@gmail.com;Massage relaxant dos;55;Marie;Salle 1;Confirmé;Non;
+06/05/2026;Mercredi;10:00;11:00;60;Sophie;Martin;06 12 34 56 78;sophie.martin@gmail.com;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+07/05/2026;Jeudi;09:30;11:00;90;Emma;Dubois;07 23 45 67 89;emma.dubois@gmail.com;Épilation jambes complètes cire;45;Julie;Salle 1;Confirmé;Non;
+12/05/2026;Mardi;15:00;16:00;60;Léa;Bernard;06 89 01 23 45;lea.bernard@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Non;
+13/05/2026;Mercredi;09:00;09:30;30;Camille;Petit;07 56 78 90 12;camille.petit@outlook.fr;Épilation sourcils fil;15;Sarah;Salle 2;Confirmé;Non;
+14/05/2026;Jeudi;10:00;11:00;60;Julie;Thomas;06 45 67 89 01;julie.thomas@gmail.com;Lifting des cils;70;Sarah;Salle 2;Confirmé;Non;
+19/05/2026;Mardi;14:00;15:00;60;Marie;Durand;07 78 90 12 34;marie.durand@gmail.com;Pressothérapie;60;Marie;Salle 1;Confirmé;Non;
+20/05/2026;Mercredi;09:00;10:00;60;Chloé;Leroy;06 90 12 34 56;chloe.leroy@gmail.com;Soin corps enveloppement algues;75;Marie;Salle 1;Confirmé;Non;
+21/05/2026;Jeudi;11:00;12:00;60;Inès;Moreau;07 12 34 56 78;ines.moreau@gmail.com;Pose ongles semi-permanent mains;45;Sarah;Salle 2;Confirmé;Non;
+26/05/2026;Mardi;16:00;17:00;60;Laura;Michel;06 56 78 90 12;laura.michel@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+27/05/2026;Mercredi;09:00;10:00;60;Manon;Simon;06 23 45 67 89;manon.simon@outlook.fr;Microneedling RF – Soin Anti-Relâchement Visage;120;Caroline;Salle 3;Confirmé;Non;
+28/05/2026;Jeudi;14:30;15:30;60;Aurélie;Nicolas;06 45 67 89 01;aurelie.nicolas@gmail.com;Soin hydratant visage;65;Caroline;Salle 1;Confirmé;Non;
+29/05/2026;Vendredi;10:00;11:00;60;Charlotte;Blanc;07 56 78 90 12;charlotte.blanc@gmail.com;Peeling chimique;85;Caroline;Salle 3;Confirmé;Non;
