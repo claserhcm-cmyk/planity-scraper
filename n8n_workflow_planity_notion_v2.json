@@ -65,6 +65,11 @@
     {
       "parameters": {
         "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "check-exists",
@@ -75,8 +80,10 @@
                 "operation": "equals"
               }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "if-exists",
       "name": "❓ RDV existe déjà ?",
@@ -169,8 +176,7 @@
       "name": "📋 Récupérer RDV actifs Notion (futurs)",
       "type": "n8n-nodes-base.notion",
       "typeVersion": 2,
-      "position": [440, 600],
-      "notes": "Récupère tous les RDV futurs non annulés déjà en base"
+      "position": [440, 600]
     },
     {
       "parameters": {
@@ -185,8 +191,14 @@
     {
       "parameters": {
         "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
+              "id": "cond-no-cancel",
               "leftValue": "={{ $json.aucune_annulation }}",
               "rightValue": true,
               "operator": {
@@ -194,8 +206,10 @@
                 "operation": "equals"
               }
             }
-          ]
-        }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
       },
       "id": "if-no-cancel",
       "name": "❓ Des annulations ?",
