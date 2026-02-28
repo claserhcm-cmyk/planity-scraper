@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================================\n// COLLE TON JSON ICI — tableau de RDV Planity\n// Champs attendus (correspond à l'export CSV Planity) :\n//   \"Date du RDV\"  → ex: \"15 février 2026\"\n//   \"Statut\"       → ex: \"Honoré\", \"Annulé\", \"No-show\"\n//   \"Praticienne\"  → ex: \"Sophie\"\n//   \"Prénom\"       → ex: \"Marie\"\n//   \"Nom\"          → ex: \"Dupont\"\n//   \"Heure début\"  → ex: \"09:00\"\n//   \"Heure fin\"    → ex: \"10:00\"\n//   \"Durée (min)\"  → ex: \"60\"\n//   \"Téléphone\"    → ex: \"0612345678\"\n//   \"Email\"        → ex: \"marie@email.com\"\n//   \"Prestation\"   → ex: \"Massage relaxant\"\n//   \"Prix (€)\"     → ex: \"50\"\n//   \"Commentaire\"  → ex: \"\"\n//   \"Jour (auto)\"  → ex: \"Samedi\" (optionnel)\n// ============================================================\n\nconst rdvs = [\n  // ↓↓↓ REMPLACE CET EXEMPLE PAR TON JSON ↓↓↓\n  {\n    \"Date du RDV\": \"28 février 2026\",\n    \"Statut\": \"Honoré\",\n    \"Praticienne\": \"Sophie\",\n    \"Prénom\": \"Marie\",\n    \"Nom\": \"Dupont\",\n    \"Heure début\": \"09:00\",\n    \"Heure fin\": \"10:00\",\n    \"Durée (min)\": \"60\",\n    \"Téléphone\": \"0612345678\",\n    \"Email\": \"marie@email.com\",\n    \"Prestation\": \"Massage relaxant\",\n    \"Prix (€)\": \"50\",\n    \"Commentaire\": \"\",\n    \"Jour (auto)\": \"Samedi\"\n  }\n  // ↑↑↑ FIN DE TON JSON ↑↑↑\n];\n\nreturn rdvs.map(row => ({ json: row }));"
+        "jsCode": "// ============================================================\n// COLLE TON JSON ICI — objet complet exporté par Planity\n// Format attendu :\n// {\n//   \"extraction_date\": \"2026-03-02\",\n//   \"semaine\": \"2026-W10\",\n//   \"etablissement\": \"Centre Laser Borderouge\",\n//   \"rendez_vous\": [\n//     {\n//       \"id_unique\": \"2026-03-02_11h30_Mathilde_Lena Cayssac\",\n//       \"date\": \"2026-03-02\",\n//       \"heure_debut\": \"11:30\",\n//       \"heure_fin\": \"12:55\",\n//       \"duree_minutes\": 85,\n//       \"collaboratrice\": \"Mathilde\",\n//       \"client_nom\": \"Lena Cayssac\",\n//       \"client_telephone\": \"07 81 14 58 05\",\n//       \"prestation\": \"Séance Laser Jambes Entières\",\n//       \"prix_estime\": 311,\n//       \"statut\": \"confirmé\"\n//     }\n//   ]\n// }\n// ============================================================\n\nconst data = {\n  // ↓↓↓ REMPLACE CET OBJET PAR TON JSON ↓↓↓\n  \"extraction_date\": \"2026-03-02\",\n  \"semaine\": \"2026-W10\",\n  \"etablissement\": \"Centre Laser Borderouge\",\n  \"rendez_vous\": [\n    {\n      \"id_unique\": \"2026-03-02_11h30_Mathilde_Lena Cayssac\",\n      \"date\": \"2026-03-02\",\n      \"heure_debut\": \"11:30\",\n      \"heure_fin\": \"12:55\",\n      \"duree_minutes\": 85,\n      \"collaboratrice\": \"Mathilde\",\n      \"client_nom\": \"Lena Cayssac\",\n      \"client_telephone\": \"07 81 14 58 05\",\n      \"prestation\": \"Séance Laser Jambes Entières\",\n      \"prix_estime\": 311,\n      \"statut\": \"confirmé\"\n    }\n  ]\n  // ↑↑↑ FIN DE TON JSON ↑↑↑\n};\n\n// Supporte les deux formats : objet avec rendez_vous OU tableau direct\nconst rdvs = Array.isArray(data) ? data : (data.rendez_vous || []);\nreturn rdvs.map(row => ({ json: row }));"
       },
       "id": "read-json",
       "name": "📋 Données RDV (JSON)",
@@ -21,10 +21,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = [];\n\nconst mois = {\n  'janvier': '01', 'février': '02', 'mars': '03', 'avril': '04',\n  'mai': '05', 'juin': '06', 'juillet': '07', 'août': '08',\n  'septembre': '09', 'octobre': '10', 'novembre': '11', 'décembre': '12'\n};\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  const statutRaw = (row['Statut'] || 'À confirmer').replace(/\\n/g, '').trim();\n\n  let dateISO = '';\n  const dateMatch = (row['Date du RDV'] || '').match(/(\\d+)\\s+(\\w+)\\s+(\\d{4})/);\n  if (dateMatch) {\n    const jour = dateMatch[1].padStart(2, '0');\n    const moisNum = mois[dateMatch[2].toLowerCase()] || '00';\n    const annee = dateMatch[3];\n    dateISO = `${annee}-${moisNum}-${jour}`;\n  }\n\n  const praticienne = (row['Praticienne'] || 'Inconnue').trim();\n  const clientNom = `${(row['Prénom'] || '').trim()} ${(row['Nom'] || '').trim()}`.trim();\n  const heureDebut = (row['Heure début'] || '').trim();\n  const idUnique = `${dateISO}_${heureDebut}_${praticienne}_${clientNom}`.replace(/\\s+/g, '_');\n\n  items.push({\n    json: {\n      id_unique: idUnique,\n      date: dateISO,\n      jour: row['Jour (auto)'] || '',\n      heure_debut: heureDebut,\n      heure_fin: (row['Heure fin'] || '').trim(),\n      duree_minutes: parseInt(row['Durée (min)'] || 0),\n      client_prenom: (row['Prénom'] || '').trim(),\n      client_nom: (row['Nom'] || '').trim(),\n      client_telephone: (row['Téléphone'] || '').trim(),\n      client_email: (row['Email'] || '').trim(),\n      prestation: (row['Prestation'] || '').trim(),\n      prix_estime: parseFloat((row['Prix (€)'] || '0').replace(',', '.')) || 0,\n      praticienne: praticienne,\n      statut: statutRaw,\n      commentaire: (row['Commentaire'] || '').replace(/\\n/g, '').trim(),\n      source_extraction: new Date().toISOString()\n    }\n  });\n}\n\nreturn items;"
+        "jsCode": "// Normalise les champs et s'assure que les valeurs nulles sont gérées\nconst items = [];\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  items.push({\n    json: {\n      id_unique: (row.id_unique || '').trim(),\n      date: (row.date || '').trim(),\n      heure_debut: (row.heure_debut || '').trim(),\n      heure_fin: (row.heure_fin || '').trim(),\n      duree_minutes: parseInt(row.duree_minutes) || 0,\n      client_nom: row.client_nom ? String(row.client_nom).trim() : 'Sans client',\n      client_telephone: row.client_telephone ? String(row.client_telephone).trim() : '',\n      prestation: (row.prestation || '').trim(),\n      prix_estime: parseFloat(row.prix_estime) || 0,\n      collaboratrice: (row.collaboratrice || 'Inconnue').trim(),\n      statut: (row.statut || 'confirmé').trim(),\n      source_extraction: new Date().toISOString()\n    }\n  });\n}\n\nreturn items;"
       },
       "id": "transform-data",
-      "name": "🔄 Transformer & Générer ID",
+      "name": "🔄 Normaliser données",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [440, 300]
@@ -96,24 +96,21 @@
         "resource": "databasePage",
         "operation": "create",
         "databaseId": "TON_DATABASE_ID_NOTION_ICI",
-        "title": "={{ $('🔄 Transformer & Générer ID').item.json.client_prenom }} {{ $('🔄 Transformer & Générer ID').item.json.client_nom }} — {{ $('🔄 Transformer & Générer ID').item.json.prestation }}",
+        "title": "={{ $('🔄 Normaliser données').item.json.client_nom }} — {{ $('🔄 Normaliser données').item.json.prestation }}",
         "propertiesUi": {
           "propertyValues": [
-            { "key": "id_unique|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.id_unique }}" },
-            { "key": "Date|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.date }}" },
-            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_debut }}" },
-            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_fin }}" },
-            { "key": "Durée (min)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.duree_minutes }}" },
-            { "key": "Prestation|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.prestation }}" },
-            { "key": "Praticienne|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.praticienne }}" },
-            { "key": "Client nom|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_nom }}" },
-            { "key": "Client prénom|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_prenom }}" },
-            { "key": "Téléphone|phone_number", "phoneValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_telephone }}" },
-            { "key": "Email|email", "emailValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_email }}" },
-            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.prix_estime }}" },
-            { "key": "Statut|select", "selectValue": "={{ $('🔄 Transformer & Générer ID').item.json.statut }}" },
-            { "key": "Commentaire|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.commentaire }}" },
-            { "key": "Source extraction|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.source_extraction }}" }
+            { "key": "id_unique|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.id_unique }}" },
+            { "key": "Date|date", "date": "={{ $('🔄 Normaliser données').item.json.date }}" },
+            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.heure_debut }}" },
+            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.heure_fin }}" },
+            { "key": "Durée (min)|number", "numberValue": "={{ $('🔄 Normaliser données').item.json.duree_minutes }}" },
+            { "key": "Prestation|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.prestation }}" },
+            { "key": "Collaboratrice|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.collaboratrice }}" },
+            { "key": "Client|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.client_nom }}" },
+            { "key": "Téléphone|phone_number", "phoneValue": "={{ $('🔄 Normaliser données').item.json.client_telephone }}" },
+            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Normaliser données').item.json.prix_estime }}" },
+            { "key": "Statut|select", "selectValue": "={{ $('🔄 Normaliser données').item.json.statut }}" },
+            { "key": "Source extraction|date", "date": "={{ $('🔄 Normaliser données').item.json.source_extraction }}" }
           ]
         }
       },
@@ -130,12 +127,11 @@
         "pageId": "={{ $json.results[0].id }}",
         "propertiesUi": {
           "propertyValues": [
-            { "key": "Statut|select", "selectValue": "={{ $('🔄 Transformer & Générer ID').item.json.statut }}" },
-            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.prix_estime }}" },
-            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_debut }}" },
-            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_fin }}" },
-            { "key": "Commentaire|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.commentaire }}" },
-            { "key": "Source extraction|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.source_extraction }}" }
+            { "key": "Statut|select", "selectValue": "={{ $('🔄 Normaliser données').item.json.statut }}" },
+            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Normaliser données').item.json.prix_estime }}" },
+            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.heure_debut }}" },
+            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Normaliser données').item.json.heure_fin }}" },
+            { "key": "Source extraction|date", "date": "={{ $('🔄 Normaliser données').item.json.source_extraction }}" }
           ]
         }
       },
@@ -157,12 +153,12 @@
             {
               "key": "Statut|select",
               "condition": "does_not_equal",
-              "value": "Annulé"
+              "value": "annulé"
             },
             {
               "key": "Statut|select",
               "condition": "does_not_equal",
-              "value": "No-show"
+              "value": "no-show"
             },
             {
               "key": "Date|date",
@@ -180,7 +176,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Compare les RDV en base Notion avec les IDs du JSON entrant\n// Si un RDV en base n'est PAS dans le JSON → il a disparu → Annulé ou No-show\n\nconst idsCSV = JSON.parse($execution.customData.get('ids_csv') || '[]');\nconst idsCSVSet = new Set(idsCSV);\n\nconst rdvAnnules = [];\n\nfor (const item of $input.all()) {\n  const page = item.json;\n  const idNotion = page.properties?.id_unique?.rich_text?.[0]?.plain_text || '';\n  const dateRDV = page.properties?.Date?.date?.start || '';\n  const now = new Date().toISOString().split('T')[0];\n\n  // Si l'ID n'est pas dans le JSON ET que la date est dans le futur ou aujourd'hui\n  if (idNotion && !idsCSVSet.has(idNotion) && dateRDV >= now) {\n    rdvAnnules.push({\n      json: {\n        page_id: page.id,\n        id_unique: idNotion,\n        date: dateRDV,\n        // Si la date est aujourd'hui → No-show possible, sinon Annulé\n        nouveau_statut: dateRDV === now ? 'No-show' : 'Annulé',\n        detection_date: new Date().toISOString()\n      }\n    });\n  }\n}\n\nif (rdvAnnules.length === 0) {\n  // Rien à annuler, on retourne un item vide pour ne pas bloquer le workflow\n  return [{ json: { aucune_annulation: true } }];\n}\n\nreturn rdvAnnules;"
+        "jsCode": "// Compare les RDV en base Notion avec les IDs du JSON entrant\n// Si un RDV en base n'est PAS dans le JSON → il a disparu → Annulé ou No-show\n\nconst idsCSV = JSON.parse($execution.customData.get('ids_csv') || '[]');\nconst idsCSVSet = new Set(idsCSV);\n\nconst rdvAnnules = [];\n\nfor (const item of $input.all()) {\n  const page = item.json;\n  const idNotion = page.properties?.id_unique?.rich_text?.[0]?.plain_text || '';\n  const dateRDV = page.properties?.Date?.date?.start || '';\n  const now = new Date().toISOString().split('T')[0];\n\n  // Si l'ID n'est pas dans le JSON ET que la date est dans le futur ou aujourd'hui\n  if (idNotion && !idsCSVSet.has(idNotion) && dateRDV >= now) {\n    rdvAnnules.push({\n      json: {\n        page_id: page.id,\n        id_unique: idNotion,\n        date: dateRDV,\n        // Si la date est aujourd'hui → No-show possible, sinon Annulé\n        nouveau_statut: dateRDV === now ? 'no-show' : 'annulé',\n        detection_date: new Date().toISOString()\n      }\n    });\n  }\n}\n\nif (rdvAnnules.length === 0) {\n  return [{ json: { aucune_annulation: true } }];\n}\n\nreturn rdvAnnules;"
       },
       "id": "detect-cancelled",
       "name": "🔎 Détecter RDV disparus",
@@ -227,10 +223,6 @@
             {
               "key": "Statut|select",
               "selectValue": "={{ $json.nouveau_statut }}"
-            },
-            {
-              "key": "Commentaire|rich_text",
-              "textValue": "=Détecté comme {{ $json.nouveau_statut }} le {{ $json.detection_date }}"
             }
           ]
         }
@@ -262,9 +254,9 @@
       ]
     },
     "📋 Données RDV (JSON)": {
-      "main": [[{ "node": "🔄 Transformer & Générer ID", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "🔄 Normaliser données", "type": "main", "index": 0 }]]
     },
-    "🔄 Transformer & Générer ID": {
+    "🔄 Normaliser données": {
       "main": [[{ "node": "💾 Mémoriser IDs du CSV", "type": "main", "index": 0 }]]
     },
     "💾 Mémoriser IDs du CSV": {
