@@ -1,0 +1,287 @@
+{
+  "name": "Planity → Notion | Upsert RDV + Détection Annulations (JSON)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "🟢 Déclencher manuellement",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// COLLE TON JSON ICI — tableau de RDV Planity\n// Champs attendus (correspond à l'export CSV Planity) :\n//   \"Date du RDV\"  → ex: \"15 février 2026\"\n//   \"Statut\"       → ex: \"Honoré\", \"Annulé\", \"No-show\"\n//   \"Praticienne\"  → ex: \"Sophie\"\n//   \"Prénom\"       → ex: \"Marie\"\n//   \"Nom\"          → ex: \"Dupont\"\n//   \"Heure début\"  → ex: \"09:00\"\n//   \"Heure fin\"    → ex: \"10:00\"\n//   \"Durée (min)\"  → ex: \"60\"\n//   \"Téléphone\"    → ex: \"0612345678\"\n//   \"Email\"        → ex: \"marie@email.com\"\n//   \"Prestation\"   → ex: \"Massage relaxant\"\n//   \"Prix (€)\"     → ex: \"50\"\n//   \"Commentaire\"  → ex: \"\"\n//   \"Jour (auto)\"  → ex: \"Samedi\" (optionnel)\n// ============================================================\n\nconst rdvs = [\n  // ↓↓↓ REMPLACE CET EXEMPLE PAR TON JSON ↓↓↓\n  {\n    \"Date du RDV\": \"28 février 2026\",\n    \"Statut\": \"Honoré\",\n    \"Praticienne\": \"Sophie\",\n    \"Prénom\": \"Marie\",\n    \"Nom\": \"Dupont\",\n    \"Heure début\": \"09:00\",\n    \"Heure fin\": \"10:00\",\n    \"Durée (min)\": \"60\",\n    \"Téléphone\": \"0612345678\",\n    \"Email\": \"marie@email.com\",\n    \"Prestation\": \"Massage relaxant\",\n    \"Prix (€)\": \"50\",\n    \"Commentaire\": \"\",\n    \"Jour (auto)\": \"Samedi\"\n  }\n  // ↑↑↑ FIN DE TON JSON ↑↑↑\n];\n\nreturn rdvs.map(row => ({ json: row }));"
+      },
+      "id": "read-json",
+      "name": "📋 Données RDV (JSON)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\n\nconst mois = {\n  'janvier': '01', 'février': '02', 'mars': '03', 'avril': '04',\n  'mai': '05', 'juin': '06', 'juillet': '07', 'août': '08',\n  'septembre': '09', 'octobre': '10', 'novembre': '11', 'décembre': '12'\n};\n\nfor (const item of $input.all()) {\n  const row = item.json;\n  const statutRaw = (row['Statut'] || 'À confirmer').replace(/\\n/g, '').trim();\n\n  let dateISO = '';\n  const dateMatch = (row['Date du RDV'] || '').match(/(\\d+)\\s+(\\w+)\\s+(\\d{4})/);\n  if (dateMatch) {\n    const jour = dateMatch[1].padStart(2, '0');\n    const moisNum = mois[dateMatch[2].toLowerCase()] || '00';\n    const annee = dateMatch[3];\n    dateISO = `${annee}-${moisNum}-${jour}`;\n  }\n\n  const praticienne = (row['Praticienne'] || 'Inconnue').trim();\n  const clientNom = `${(row['Prénom'] || '').trim()} ${(row['Nom'] || '').trim()}`.trim();\n  const heureDebut = (row['Heure début'] || '').trim();\n  const idUnique = `${dateISO}_${heureDebut}_${praticienne}_${clientNom}`.replace(/\\s+/g, '_');\n\n  items.push({\n    json: {\n      id_unique: idUnique,\n      date: dateISO,\n      jour: row['Jour (auto)'] || '',\n      heure_debut: heureDebut,\n      heure_fin: (row['Heure fin'] || '').trim(),\n      duree_minutes: parseInt(row['Durée (min)'] || 0),\n      client_prenom: (row['Prénom'] || '').trim(),\n      client_nom: (row['Nom'] || '').trim(),\n      client_telephone: (row['Téléphone'] || '').trim(),\n      client_email: (row['Email'] || '').trim(),\n      prestation: (row['Prestation'] || '').trim(),\n      prix_estime: parseFloat((row['Prix (€)'] || '0').replace(',', '.')) || 0,\n      praticienne: praticienne,\n      statut: statutRaw,\n      commentaire: (row['Commentaire'] || '').replace(/\\n/g, '').trim(),\n      source_extraction: new Date().toISOString()\n    }\n  });\n}\n\nreturn items;"
+      },
+      "id": "transform-data",
+      "name": "🔄 Transformer & Générer ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collecte tous les id_unique du JSON entrant\n// et les stocke dans une variable globale accessible plus tard\nconst allIds = $input.all().map(item => item.json.id_unique);\n$execution.customData.set('ids_csv', JSON.stringify(allIds));\nreturn $input.all();"
+      },
+      "id": "store-ids",
+      "name": "💾 Mémoriser IDs du CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "TON_DATABASE_ID_NOTION_ICI",
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "id_unique|rich_text",
+              "condition": "equals",
+              "value": "={{ $json.id_unique }}"
+            }
+          ]
+        }
+      },
+      "id": "notion-search",
+      "name": "🔍 Chercher RDV dans Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "check-exists",
+              "leftValue": "={{ $json.results?.length ?? 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "if-exists",
+      "name": "❓ RDV existe déjà ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "create",
+        "databaseId": "TON_DATABASE_ID_NOTION_ICI",
+        "title": "={{ $('🔄 Transformer & Générer ID').item.json.client_prenom }} {{ $('🔄 Transformer & Générer ID').item.json.client_nom }} — {{ $('🔄 Transformer & Générer ID').item.json.prestation }}",
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "id_unique|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.id_unique }}" },
+            { "key": "Date|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.date }}" },
+            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_debut }}" },
+            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_fin }}" },
+            { "key": "Durée (min)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.duree_minutes }}" },
+            { "key": "Prestation|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.prestation }}" },
+            { "key": "Praticienne|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.praticienne }}" },
+            { "key": "Client nom|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_nom }}" },
+            { "key": "Client prénom|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_prenom }}" },
+            { "key": "Téléphone|phone_number", "phoneValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_telephone }}" },
+            { "key": "Email|email", "emailValue": "={{ $('🔄 Transformer & Générer ID').item.json.client_email }}" },
+            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.prix_estime }}" },
+            { "key": "Statut|select", "selectValue": "={{ $('🔄 Transformer & Générer ID').item.json.statut }}" },
+            { "key": "Commentaire|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.commentaire }}" },
+            { "key": "Source extraction|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.source_extraction }}" }
+          ]
+        }
+      },
+      "id": "notion-create",
+      "name": "✅ Créer RDV dans Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1320, 180]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": "={{ $json.results[0].id }}",
+        "propertiesUi": {
+          "propertyValues": [
+            { "key": "Statut|select", "selectValue": "={{ $('🔄 Transformer & Générer ID').item.json.statut }}" },
+            { "key": "Prix estimé (€)|number", "numberValue": "={{ $('🔄 Transformer & Générer ID').item.json.prix_estime }}" },
+            { "key": "Heure début|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_debut }}" },
+            { "key": "Heure fin|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.heure_fin }}" },
+            { "key": "Commentaire|rich_text", "textValue": "={{ $('🔄 Transformer & Générer ID').item.json.commentaire }}" },
+            { "key": "Source extraction|date", "date": "={{ $('🔄 Transformer & Générer ID').item.json.source_extraction }}" }
+          ]
+        }
+      },
+      "id": "notion-update",
+      "name": "🔁 Mettre à jour RDV Notion",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1320, 420]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "TON_DATABASE_ID_NOTION_ICI",
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Statut|select",
+              "condition": "does_not_equal",
+              "value": "Annulé"
+            },
+            {
+              "key": "Statut|select",
+              "condition": "does_not_equal",
+              "value": "No-show"
+            },
+            {
+              "key": "Date|date",
+              "condition": "on_or_after",
+              "value": "={{ $now.toISO().split('T')[0] }}"
+            }
+          ]
+        }
+      },
+      "id": "notion-get-all-active",
+      "name": "📋 Récupérer RDV actifs Notion (futurs)",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [440, 600],
+      "notes": "Récupère tous les RDV futurs non annulés déjà en base"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compare les RDV en base Notion avec les IDs du JSON entrant\n// Si un RDV en base n'est PAS dans le JSON → il a disparu → Annulé ou No-show\n\nconst idsCSV = JSON.parse($execution.customData.get('ids_csv') || '[]');\nconst idsCSVSet = new Set(idsCSV);\n\nconst rdvAnnules = [];\n\nfor (const item of $input.all()) {\n  const page = item.json;\n  const idNotion = page.properties?.id_unique?.rich_text?.[0]?.plain_text || '';\n  const dateRDV = page.properties?.Date?.date?.start || '';\n  const now = new Date().toISOString().split('T')[0];\n\n  // Si l'ID n'est pas dans le JSON ET que la date est dans le futur ou aujourd'hui\n  if (idNotion && !idsCSVSet.has(idNotion) && dateRDV >= now) {\n    rdvAnnules.push({\n      json: {\n        page_id: page.id,\n        id_unique: idNotion,\n        date: dateRDV,\n        // Si la date est aujourd'hui → No-show possible, sinon Annulé\n        nouveau_statut: dateRDV === now ? 'No-show' : 'Annulé',\n        detection_date: new Date().toISOString()\n      }\n    });\n  }\n}\n\nif (rdvAnnules.length === 0) {\n  // Rien à annuler, on retourne un item vide pour ne pas bloquer le workflow\n  return [{ json: { aucune_annulation: true } }];\n}\n\nreturn rdvAnnules;"
+      },
+      "id": "detect-cancelled",
+      "name": "🔎 Détecter RDV disparus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.aucune_annulation }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "id": "if-no-cancel",
+      "name": "❓ Des annulations ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 600]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": "={{ $json.page_id }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Statut|select",
+              "selectValue": "={{ $json.nouveau_statut }}"
+            },
+            {
+              "key": "Commentaire|rich_text",
+              "textValue": "=Détecté comme {{ $json.nouveau_statut }} le {{ $json.detection_date }}"
+            }
+          ]
+        }
+      },
+      "id": "notion-mark-cancelled",
+      "name": "🚫 Marquer Annulé / No-show",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [1100, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Résumé final de l'exécution\nconst idsCSV = JSON.parse($execution.customData.get('ids_csv') || '[]');\nreturn [{\n  json: {\n    message: '✅ Synchronisation Planity → Notion terminée',\n    timestamp: new Date().toISOString(),\n    rdv_dans_json: idsCSV.length,\n    info: 'Vérifiez Notion pour le détail des créations, mises à jour et annulations'\n  }\n}];"
+      },
+      "id": "summary",
+      "name": "📊 Résumé exécution",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 700]
+    }
+  ],
+  "connections": {
+    "🟢 Déclencher manuellement": {
+      "main": [
+        [
+          { "node": "📋 Données RDV (JSON)", "type": "main", "index": 0 },
+          { "node": "📋 Récupérer RDV actifs Notion (futurs)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📋 Données RDV (JSON)": {
+      "main": [[{ "node": "🔄 Transformer & Générer ID", "type": "main", "index": 0 }]]
+    },
+    "🔄 Transformer & Générer ID": {
+      "main": [[{ "node": "💾 Mémoriser IDs du CSV", "type": "main", "index": 0 }]]
+    },
+    "💾 Mémoriser IDs du CSV": {
+      "main": [[{ "node": "🔍 Chercher RDV dans Notion", "type": "main", "index": 0 }]]
+    },
+    "🔍 Chercher RDV dans Notion": {
+      "main": [[{ "node": "❓ RDV existe déjà ?", "type": "main", "index": 0 }]]
+    },
+    "❓ RDV existe déjà ?": {
+      "main": [
+        [{ "node": "✅ Créer RDV dans Notion", "type": "main", "index": 0 }],
+        [{ "node": "🔁 Mettre à jour RDV Notion", "type": "main", "index": 0 }]
+      ]
+    },
+    "📋 Récupérer RDV actifs Notion (futurs)": {
+      "main": [[{ "node": "🔎 Détecter RDV disparus", "type": "main", "index": 0 }]]
+    },
+    "🔎 Détecter RDV disparus": {
+      "main": [[{ "node": "❓ Des annulations ?", "type": "main", "index": 0 }]]
+    },
+    "❓ Des annulations ?": {
+      "main": [
+        [{ "node": "📊 Résumé exécution", "type": "main", "index": 0 }],
+        [{ "node": "🚫 Marquer Annulé / No-show", "type": "main", "index": 0 }]
+      ]
+    },
+    "🚫 Marquer Annulé / No-show": {
+      "main": [[{ "node": "📊 Résumé exécution", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
